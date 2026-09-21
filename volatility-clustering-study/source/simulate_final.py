@@ -11,21 +11,21 @@ from stats import compute_summary, compute_acf_suite, rolling_volatility
 FIGURES_DIR = Path(__file__).parent.parent / "results" / "figures"
 FIGURES_DIR.mkdir(parents=True, exist_ok=True)
 
-#  Load real data
-
-
+# Load real data
 r_real = load_returns()
 mu     = r_real.mean()
 sig    = r_real.std()
 n      = len(r_real)
 
-#  Combined model simulation
-
+# Combined model simulation
 ALPHA = 0.08
 BETA  = 0.784475
 OMEGA = sig**2 * (1 - ALPHA - BETA)
 P          = 0.05
 SIGMA_JUMP = 5 * sig
+
+DF = 5
+T_SCALE = np.sqrt(DF / (DF - 2))  # standardizes Student-t(5) to unit variance
 
 def simulate_combined(n, omega, alpha, beta, mu, p, sigma_jump):
     returns   = np.zeros(n)
@@ -33,17 +33,16 @@ def simulate_combined(n, omega, alpha, beta, mu, p, sigma_jump):
     variances[0] = omega / (1 - alpha - beta)
     for t in range(1, n):
         sigma_t      = np.sqrt(variances[t - 1])
-        eps          = np.random.standard_t(df=5)      # fat-tailed shocks
-        J            = np.random.binomial(1, p)         # correct Bernoulli
-        S            = np.random.normal(0, sigma_jump)
-        returns[t]   = mu + sigma_t * (eps + J * S)
-        variances[t] = omega + alpha * returns[t-1]**2 + beta * variances[t-1]
+        eps          = np.random.standard_t(df=DF) / T_SCALE   # unit-variance fat-tailed shock
+        J            = np.random.binomial(1, p)                 # jump indicator
+        S            = np.random.normal(0, sigma_jump)          # jump size, NOT rescaled by sigma_t
+        returns[t]   = mu + sigma_t * eps + J * S
+        variances[t] = omega + alpha * (returns[t-1] - mu)**2 + beta * variances[t-1]
     return returns, variances
 
 np.random.seed(42)
 r_sim_arr, variances = simulate_combined(n, OMEGA, ALPHA, BETA, mu, P, SIGMA_JUMP)
 r_sim = pd.Series(r_sim_arr)
-
 
 # STEP 3 — Diagnostics
 

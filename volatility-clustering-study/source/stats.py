@@ -33,5 +33,3 @@ def print_summary(summary: dict) -> None:
     print()
     for k, v in summary.items():
         print(f"  {k:<22} {v:>12.6f}")
-    print()
-    print(f"  NOTE: Normal dist has excess kurtosis = 0")
